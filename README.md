@@ -12,7 +12,7 @@ Only left the option to create segregated witness addresses (P2WPKH)
 1. Features
 
  * Keypair generation with QR codes
- * Print the generated QR codes
+ * Print the generated QR codes (https://github.com/eKoopmans/html2pdf.js)
  
 2. External Support
 
