@@ -39,7 +39,7 @@
             margin: 12px;
 			border: 2px dotted #CCCCCC;
 			border-radius: 5px;
-			cursor: crosshair;            
+			cursor: crosshair;
         }
 
         #entropyRef, #printRef {
@@ -94,7 +94,7 @@
 
     <!-- jQuery -->
     <script src="js/jquery-3.2.1.min.js"></script>
-    <!-- load bitcoinjs-lib -->
+    <!-- Bitcoinjs-lib -->
     <script src="js/bitcoinjs-lib-3.1.1.js"></script>
     <!-- big integer for mouse entropy -->
     <script src="js/metropy.js"></script>
@@ -105,7 +105,7 @@
 </head>
 
 <body>
-    <!-- Generate Button -->
+    <!-- Generate / Print Buttons -->
     <div align="center">
         <br>
         <a href="#entropyRef"><button id="entropyRef" onClick="return btnCreate();" class="btn btn-primary">Generate
@@ -114,6 +114,7 @@
         <br>
     </div>
 
+    <!-- Printable content -->
     <div id="content">
         <br>
         <hr class="hr">
@@ -165,12 +166,12 @@
                         };
         })();
 
-        // create the needed variables
+        // Create the needed variables
         var bitcoinAddress = "";
         var mousePos = { x:0, y:0 };
         var lastPos = mousePos;        
         var entropy = "";
-        // create the canvas
+        // Create the canvas
         var canvas = document.getElementById('entropyCanvas');
         var c2d = canvas.getContext("2d");
         c2d.font = "12px Arial";
@@ -178,7 +179,7 @@
         c2d.lineWith = 2;
 
         function btnCreate() {
-            // view canvas
+            // Show canvas
             $("#entropyCanvas").css("display", "block");
             // set html content empty
             $("#qrcode").html("");
@@ -187,19 +188,19 @@
             $("#swpk").html("");
             $("#share").html("");
             $("#keep").html("");
-            // clear canvas content
+            // Clear canvas content
             clearCanvas();
-            // add some info text to canvas
+            // Add some info text to canvas
             c2d.fillText("Touch / move mouse to generate random numbers", 20, 20);
-            // zero out entropy source
+            // Zero out entropy source
             entropy = "";
-            // empty bitcoinAddress
+            // Empty bitcoinAddress
             bitcoinAddress = "";
-            // random startpoint in canvas
+            // Random startpoint in canvas
             mousePos = randomMousePos();
             lastPos = mousePos; 
 
-            //get mouse position while moving inside of the canvas
+            // Get mouse position while moving inside of the canvas
             function getMousePos(canvasDom, mouseEvent) {
                 var rect = canvas.getBoundingClientRect();
                 return {
@@ -208,7 +209,7 @@
                 };
             }
 
-            // get the position of a touch relative to the canvas
+            // Get the position of a touch relative to the canvas
             function getTouchPos(canvasDom, touchEvent) {
                 var rect = canvasDom.getBoundingClientRect();
                 return {
@@ -217,7 +218,7 @@
                 };
             }            
             
-            // check if we are mobile, either mouse or touch events
+            // Check if we are mobile, either mouse or touch events
             var touchOrMouse = isMobileDevice() ? 'touchmove' : 'mousemove';
             var getPosition = function(canvasDom, event) {
                 if (isMobileDevice()) {
@@ -228,45 +229,44 @@
             };
 
             canvas.addEventListener(touchOrMouse, function (evt) {
-                // append until a length of 8192    
+                // Append until a length of 8192    
                 if (entropy.length < 8192) {
                     // mousePos = getMousePos(canvas, evt);
                     mousePos = getPosition.bind(null, canvas, evt)();
-                    // append mouse position to entropy source
                     // console.log('Pos: ', mousePos.x, mousePos.y)
+                    // Append mouse position to entropy source
                     entropy += mousePos.x + mousePos.y;
                     document.getElementById("canvasCounter").innerHTML = entropy.length + " / 8192";
-                } else {
-                    // length requirement met 
-                    // hide canvas
+                } else { // Length requirement met 
+                    // Hide canvas
                     $("#entropyCanvas").css("display", "none");
                     $("#canvasCounter").html("");
-                    //create a key pair based on the 8192 random integers through sha256 hash with the addMouseEntropy function 
+                    // Create a key pair based on the 8192 random integers through sha256 hash with the addMouseEntropy function 
                     me.addMouseEntropy(entropy, bitcoin.networks.bitcoin, function (maddr, mpk) {
                         // PUBLIC INFO
                         bitcoinAddress = maddr;
                         document.getElementById('share').innerHTML = "OK TO SHARE"
                         document.getElementById("swaddr").innerHTML = "<br><div class='panel panel-primary'><div class='panel-heading'><h3 class='panel-title'>Bitcoin PUBLIC Key (Savings book)</h2></div><div class='panel-body'><b>" + maddr + "</b></div></div>";
 
-                        // blank out any existing qr code
+                        // Blank out any existing qr code
                         document.getElementById("qrcode").innerHTML = "";
-                        //create new qrcode with segwit address
+                        // Create new qrcode with segwit address
                         new QRCode(document.getElementById("qrcode"), maddr);
 
                         document.getElementById('keep').innerHTML = "KEEP PRIVATE"
                         document.getElementById("swpk").innerHTML = "<br><div class='panel panel-danger'><div class='panel-headingd'><h3 class='panel-title'>Bitcoin PRIVATE Key (Savings book password)</h2></div><div class='panel-body'><b>" + mpk + "</b></div></div>";
 
-                        // blank out any exisitng private key qr code
+                        // Blank out any exisitng private key qr code
                         document.getElementById("qrcodepk").innerHTML = "";
-                        //create new qrcode with private key
+                        // Create new qrcode with private key
                         new QRCode(document.getElementById("qrcodepk"), mpk);
                     });
                 }
             }, false);
         }
 
+        // Print button
         $('#printRef').click(function () {
-            console.log(bitcoinAddress);
             var element = document.getElementById('content');
             var options = {
                 filename: bitcoinAddress || 'empty'
@@ -282,6 +282,7 @@
             lastPos = mousePos;
         }
 
+        // Clear canvas
         function clearCanvas() {
             canvas.width = canvas.width;
         }
