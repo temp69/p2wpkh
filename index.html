@@ -37,30 +37,17 @@
         #entropyCanvas {
             display: none;
             margin: 12px;
+			border: 2px dotted #CCCCCC;
+			border-radius: 5px;
+			cursor: crosshair;            
         }
 
-        #entropyRef {
+        #entropyRef, #printRef {
             border: 1px solid #0088ff;
             background-color: #0088ff;
             color: #fff;
             padding: 5px;
             cursor: pointer;
-        }
-
-        #printRef {
-            border: 1px solid #0088ff;
-            background-color: #0088ff;
-            color: #fff;
-            padding: 5px;
-            cursor: pointer;
-        }
-
-        #qrnotify {
-            display: none;
-        }
-
-        #qrnotify2 {
-            display: none;
         }
 
         .hr {
@@ -132,9 +119,9 @@
         <hr class="hr">
         <br>
 
-        <!-- Mouse entrophy canvas -->
+        <!-- Mouse/Touch entrophy canvas -->
         <div align="center">
-            <canvas id="entropyCanvas" width="400" height="400" style="border: 1px solid black;"></canvas>
+            <canvas id="entropyCanvas" width="400" height="400"></canvas>
         </div>
         <div align="center" id="canvasCounter"></div>
 
@@ -166,41 +153,92 @@
     </div>
 
     <script>
+        // Get a regular interval for drawing to the screen
+        window.requestAnimFrame = (function (callback) {
+            return window.requestAnimationFrame || 
+                        window.webkitRequestAnimationFrame ||
+                        window.mozRequestAnimationFrame ||
+                        window.oRequestAnimationFrame ||
+                        window.msRequestAnimaitonFrame ||
+                        function (callback) {
+                            window.setTimeout(callback, 1000/60);
+                        };
+        })();
+
+        // create the needed variables
         var bitcoinAddress = "";
+        var mousePos = { x:0, y:0 };
+        var lastPos = mousePos;        
+        var entropy = "";
+        // create the canvas
+        var canvas = document.getElementById('entropyCanvas');
+        var c2d = canvas.getContext("2d");
+        c2d.font = "12px Arial";
+        c2d.strokeStyle = "#222222";
+        c2d.lineWith = 2;
 
         function btnCreate() {
+            // view canvas
             $("#entropyCanvas").css("display", "block");
+            // set html content empty
             $("#qrcode").html("");
             $("#swaddr").html("");
             $("#qrcodepk").html("");
             $("#swpk").html("");
             $("#share").html("");
             $("#keep").html("");
+            // clear canvas content
+            clearCanvas();
+            // add some info text to canvas
+            c2d.fillText("Touch / move mouse to generate random numbers", 20, 20);
+            // zero out entropy source
+            entropy = "";
+            // empty bitcoinAddress
+            bitcoinAddress = "";
+            // random startpoint in canvas
+            mousePos = randomMousePos();
+            lastPos = mousePos; 
 
-            //get mouse position to use for randomness
-            function getMousePos(canvas, evt) {
+            //get mouse position while moving inside of the canvas
+            function getMousePos(canvasDom, mouseEvent) {
                 var rect = canvas.getBoundingClientRect();
                 return {
-                    x: evt.clientX - rect.left,
-                    y: evt.clientY - rect.top
+                    x: mouseEvent.clientX - rect.left,
+                    y: mouseEvent.clientY - rect.top
                 };
             }
 
-            var entropy = "";
-            var canvas = document.getElementById('entropyCanvas');
-            var c2d = canvas.getContext("2d");
-            c2d.font = "16px Arial";
-            c2d.fillText("Move mouse to generate random numbers", 50, 50);
-
-            canvas.addEventListener('mousemove', function (evt) {
-                //append until a length of 8192    
-                if (entropy.length < 8192) {
-                    var mousePos = getMousePos(canvas, evt);
-                    //append mouse position to entropy source
-                    entropy += mousePos.x + mousePos.y;
-                    document.getElementById("canvasCounter").innerHTML = entropy.length + "/8192";
+            // get the position of a touch relative to the canvas
+            function getTouchPos(canvasDom, touchEvent) {
+                var rect = canvasDom.getBoundingClientRect();
+                return {
+                    x: Math.floor(touchEvent.touches[0].clientX) - rect.left,
+                    y: Math.floor(touchEvent.touches[0].clientY) - rect.top
+                };
+            }            
+            
+            // check if we are mobile, either mouse or touch events
+            var touchOrMouse = isMobileDevice() ? 'touchmove' : 'mousemove';
+            var getPosition = function(canvasDom, event) {
+                if (isMobileDevice()) {
+                    return getTouchPos(canvasDom, event);
                 } else {
-                    //length requirement met, hide entropy canvas
+                    return getMousePos(canvasDom, event);
+                }
+            };
+
+            canvas.addEventListener(touchOrMouse, function (evt) {
+                // append until a length of 8192    
+                if (entropy.length < 8192) {
+                    // mousePos = getMousePos(canvas, evt);
+                    mousePos = getPosition.bind(null, canvas, evt)();
+                    // append mouse position to entropy source
+                    // console.log('Pos: ', mousePos.x, mousePos.y)
+                    entropy += mousePos.x + mousePos.y;
+                    document.getElementById("canvasCounter").innerHTML = entropy.length + " / 8192";
+                } else {
+                    // length requirement met 
+                    // hide canvas
                     $("#entropyCanvas").css("display", "none");
                     $("#canvasCounter").html("");
                     //create a key pair based on the 8192 random integers through sha256 hash with the addMouseEntropy function 
@@ -210,7 +248,7 @@
                         document.getElementById('share').innerHTML = "OK TO SHARE"
                         document.getElementById("swaddr").innerHTML = "<br><div class='panel panel-primary'><div class='panel-heading'><h3 class='panel-title'>Bitcoin PUBLIC Key (Savings book)</h2></div><div class='panel-body'><b>" + maddr + "</b></div></div>";
 
-                        //blank out any existing qr code
+                        // blank out any existing qr code
                         document.getElementById("qrcode").innerHTML = "";
                         //create new qrcode with segwit address
                         new QRCode(document.getElementById("qrcode"), maddr);
@@ -218,13 +256,10 @@
                         document.getElementById('keep').innerHTML = "KEEP PRIVATE"
                         document.getElementById("swpk").innerHTML = "<br><div class='panel panel-danger'><div class='panel-headingd'><h3 class='panel-title'>Bitcoin PRIVATE Key (Savings book password)</h2></div><div class='panel-body'><b>" + mpk + "</b></div></div>";
 
-                        //blank out any exisitng private key qr code
+                        // blank out any exisitng private key qr code
                         document.getElementById("qrcodepk").innerHTML = "";
                         //create new qrcode with private key
                         new QRCode(document.getElementById("qrcodepk"), mpk);
-
-                        //zero out entropy source
-                        entropy = "";
                     });
                 }
             }, false);
@@ -239,6 +274,37 @@
             html2pdf(element, options);
         });
 
+        // Draw to the canvas
+        function renderCanvas() {
+            c2d.moveTo(lastPos.x, lastPos.y);
+            c2d.lineTo(mousePos.x, mousePos.y);
+            c2d.stroke();
+            lastPos = mousePos;
+        }
+
+        function clearCanvas() {
+            canvas.width = canvas.width;
+        }
+        
+        // When moving into the canvas start randomly
+        function randomMousePos() {
+            var rect = canvas.getBoundingClientRect();
+            return {
+                x: Math.floor(Math.random() * rect.width),
+                y: Math.floor(Math.random() * rect.height),
+            };
+        }
+
+        // Allow for animation
+        (function drawLoop () {
+            requestAnimFrame(drawLoop);
+            renderCanvas();
+        })();
+
+        // Check for mobile device
+        function isMobileDevice() {
+            return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1);
+        };
 
     </script>
 
