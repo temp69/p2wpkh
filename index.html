@@ -204,8 +204,8 @@
             function getMousePos(canvasDom, mouseEvent) {
                 var rect = canvasDom.getBoundingClientRect();
                 return {
-                    x: mouseEvent.clientX - rect.left,
-                    y: mouseEvent.clientY - rect.top
+                    x: Math.floor(mouseEvent.clientX - rect.left),
+                    y: Math.floor(mouseEvent.clientY - rect.top)
                 };
             }
 
@@ -213,8 +213,11 @@
             function getTouchPos(canvasDom, touchEvent) {
                 var rect = canvasDom.getBoundingClientRect();
                 return {
-                    x: touchEvent.touches[0].clientX - rect.left,
-                    y: touchEvent.touches[0].clientY - rect.top
+                    // touch result coult be in non-integer negative values, which we dont want
+                    x: Math.abs(Math.floor(touchEvent.touches[0].clientX - rect.left)),
+                    y: Math.abs(Math.floor(touchEvent.touches[0].clientY - rect.top))
+                    // x: Math.floor(touchEvent.targetTouches[0].pageX - rect.left),
+                    // y: Math.floor(touchEvent.targetTouches[0].pageY - rect.top)
                 };
             }            
             
@@ -233,7 +236,7 @@
                 if (entropy.length < 8192) {
                     // mousePos = getMousePos(canvas, evt);
                     mousePos = getPosition.bind(null, canvas, evt)();
-                    // console.log('Pos: ', mousePos.x, mousePos.y)
+                    // console.log('Pos: ', mousePos.x, mousePos.y) // DEBUG
                     // Append mouse position to entropy source
                     entropy += mousePos.x + mousePos.y;
                     document.getElementById("canvasCounter").innerHTML = entropy.length + " / 8192";
@@ -243,6 +246,7 @@
                     $("#canvasCounter").html("");
                     // Create a key pair based on the 8192 random integers through sha256 hash with the addMouseEntropy function 
                     me.addMouseEntropy(entropy, bitcoin.networks.bitcoin, function (maddr, mpk) {
+                        // console.log('entrophy', entropy); // DEBUG
                         // PUBLIC INFO
                         bitcoinAddress = maddr;
                         document.getElementById('share').innerHTML = "OK TO SHARE"
