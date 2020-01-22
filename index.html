@@ -37,12 +37,13 @@
         #entropyCanvas {
             display: none;
             margin: 12px;
-			border: 2px dotted #CCCCCC;
-			border-radius: 5px;
-			cursor: crosshair;
+            border: 2px dotted #CCCCCC;
+            border-radius: 5px;
+            cursor: crosshair;
         }
 
-        #entropyRef, #printRef {
+        #entropyRef,
+        #printRef {
             border: 1px solid #0088ff;
             background-color: #0088ff;
             color: #fff;
@@ -156,20 +157,20 @@
     <script>
         // Get a regular interval for drawing to the screen
         window.requestAnimFrame = (function (callback) {
-            return window.requestAnimationFrame || 
-                        window.webkitRequestAnimationFrame ||
-                        window.mozRequestAnimationFrame ||
-                        window.oRequestAnimationFrame ||
-                        window.msRequestAnimaitonFrame ||
-                        function (callback) {
-                            window.setTimeout(callback, 1000/60);
-                        };
+            return window.requestAnimationFrame ||
+                window.webkitRequestAnimationFrame ||
+                window.mozRequestAnimationFrame ||
+                window.oRequestAnimationFrame ||
+                window.msRequestAnimaitonFrame ||
+                function (callback) {
+                    window.setTimeout(callback, 1000 / 60);
+                };
         })();
 
         // Create the needed variables
         var bitcoinAddress = "";
-        var mousePos = { x:0, y:0 };
-        var lastPos = mousePos;        
+        var mousePos = { x: 0, y: 0 };
+        var lastPos = mousePos;
         var entropy = "";
         // Create the canvas
         var canvas = document.getElementById('entropyCanvas');
@@ -177,6 +178,8 @@
         c2d.font = "12px Arial";
         c2d.strokeStyle = "#222222";
         c2d.lineWith = 2;
+        // check if we attached an eventlistener already
+        var listenerAttached = false;
 
         function btnCreate() {
             // Show canvas
@@ -198,7 +201,7 @@
             bitcoinAddress = "";
             // Random startpoint in canvas
             mousePos = randomMousePos();
-            lastPos = mousePos; 
+            lastPos = mousePos;
 
             // Get mouse position while moving inside of the canvas
             function getMousePos(canvasDom, mouseEvent) {
@@ -219,11 +222,11 @@
                     // x: Math.floor(touchEvent.targetTouches[0].pageX - rect.left),
                     // y: Math.floor(touchEvent.targetTouches[0].pageY - rect.top)
                 };
-            }            
-            
+            }
+
             // Check if we are mobile, either mouse or touch events
             var touchOrMouse = isMobileDevice() ? 'touchmove' : 'mousemove';
-            var getPosition = function(canvasDom, event) {
+            let getPosition = function (canvasDom, event) {
                 if (isMobileDevice()) {
                     return getTouchPos(canvasDom, event);
                 } else {
@@ -231,42 +234,45 @@
                 }
             };
 
-            canvas.addEventListener(touchOrMouse, function (evt) {
-                // Append until a length of 8192    
-                if (entropy.length < 8192) {
-                    // mousePos = getMousePos(canvas, evt);
-                    mousePos = getPosition.bind(null, canvas, evt)();
-                    // console.log('Pos: ', mousePos.x, mousePos.y) // DEBUG
-                    // Append mouse position to entropy source
-                    entropy += mousePos.x + mousePos.y;
-                    document.getElementById("canvasCounter").innerHTML = entropy.length + " / 8192";
-                } else { // Length requirement met 
-                    // Hide canvas
-                    $("#entropyCanvas").css("display", "none");
-                    $("#canvasCounter").html("");
-                    // Create a key pair based on the 8192 random integers through sha256 hash with the addMouseEntropy function 
-                    me.addMouseEntropy(entropy, bitcoin.networks.bitcoin, function (maddr, mpk) {
-                        // console.log('entrophy', entropy); // DEBUG
-                        // PUBLIC INFO
-                        bitcoinAddress = maddr;
-                        document.getElementById('share').innerHTML = "OK TO SHARE"
-                        document.getElementById("swaddr").innerHTML = "<br><div class='panel panel-primary'><div class='panel-heading'><h3 class='panel-title'>Bitcoin PUBLIC Key (Savings book)</h2></div><div class='panel-body'><b>" + maddr + "</b></div></div>";
+            if (listenerAttached == false) {
+                canvas.addEventListener(touchOrMouse, function (evt) {
+                    listenerAttached = true;
+                    // Append until a length of 8192    
+                    if (entropy.length < 8192) {
+                        // mousePos = getMousePos(canvas, evt);
+                        mousePos = getPosition.bind(null, canvas, evt)();
+                        // console.log('Pos: ', mousePos.x, mousePos.y) // DEBUG
+                        // Append mouse position to entropy source
+                        entropy += mousePos.x + mousePos.y;
+                        document.getElementById("canvasCounter").innerHTML = entropy.length + " / 8192";
+                    } else { // Length requirement met 
+                        // Hide canvas
+                        $("#entropyCanvas").css("display", "none");
+                        $("#canvasCounter").html("");
+                        // Create a key pair based on the 8192 random integers through sha256 hash with the addMouseEntropy function 
+                        me.addMouseEntropy(entropy, bitcoin.networks.bitcoin, function (maddr, mpk) {
+                            // console.log('entrophy', entropy); // DEBUG
+                            // PUBLIC INFO
+                            bitcoinAddress = maddr;
+                            document.getElementById('share').innerHTML = "OK TO SHARE"
+                            document.getElementById("swaddr").innerHTML = "<br><div class='panel panel-primary'><div class='panel-heading'><h3 class='panel-title'>Bitcoin PUBLIC Key (Savings book)</h2></div><div class='panel-body'><b>" + maddr + "</b></div></div>";
 
-                        // Blank out any existing qr code
-                        document.getElementById("qrcode").innerHTML = "";
-                        // Create new qrcode with segwit address
-                        new QRCode(document.getElementById("qrcode"), maddr);
+                            // Blank out any existing qr code
+                            document.getElementById("qrcode").innerHTML = "";
+                            // Create new qrcode with segwit address
+                            new QRCode(document.getElementById("qrcode"), maddr);
 
-                        document.getElementById('keep').innerHTML = "KEEP PRIVATE"
-                        document.getElementById("swpk").innerHTML = "<br><div class='panel panel-danger'><div class='panel-headingd'><h3 class='panel-title'>Bitcoin PRIVATE Key (Savings book password)</h2></div><div class='panel-body'><b>" + mpk + "</b></div></div>";
+                            document.getElementById('keep').innerHTML = "KEEP PRIVATE"
+                            document.getElementById("swpk").innerHTML = "<br><div class='panel panel-danger'><div class='panel-headingd'><h3 class='panel-title'>Bitcoin PRIVATE Key (Savings book password)</h2></div><div class='panel-body'><b>" + mpk + "</b></div></div>";
 
-                        // Blank out any exisitng private key qr code
-                        document.getElementById("qrcodepk").innerHTML = "";
-                        // Create new qrcode with private key
-                        new QRCode(document.getElementById("qrcodepk"), mpk);
-                    });
-                }
-            }, false);
+                            // Blank out any exisitng private key qr code
+                            document.getElementById("qrcodepk").innerHTML = "";
+                            // Create new qrcode with private key
+                            new QRCode(document.getElementById("qrcodepk"), mpk);
+                        });
+                    }
+                }, false);
+            }
         }
 
         // Print button
@@ -290,7 +296,7 @@
         function clearCanvas() {
             canvas.width = canvas.width;
         }
-        
+
         // When moving into the canvas start randomly
         function randomMousePos() {
             var rect = canvas.getBoundingClientRect();
@@ -301,7 +307,7 @@
         }
 
         // Allow for animation
-        (function drawLoop () {
+        (function drawLoop() {
             requestAnimFrame(drawLoop);
             renderCanvas();
         })();
