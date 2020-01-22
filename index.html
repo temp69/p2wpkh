@@ -202,7 +202,7 @@
 
             // Get mouse position while moving inside of the canvas
             function getMousePos(canvasDom, mouseEvent) {
-                var rect = canvas.getBoundingClientRect();
+                var rect = canvasDom.getBoundingClientRect();
                 return {
                     x: mouseEvent.clientX - rect.left,
                     y: mouseEvent.clientY - rect.top
