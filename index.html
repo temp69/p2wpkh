@@ -180,6 +180,8 @@
         c2d.lineWith = 2;
         // check if we attached an eventlistener already
         var listenerAttached = false;
+        // handleTouchEvent to stop touchmoved fireing
+        var handleTouchEvent = false;
 
         function btnCreate() {
             // Show canvas
@@ -202,6 +204,7 @@
             // Random startpoint in canvas
             mousePos = randomMousePos();
             lastPos = mousePos;
+            handleTouchEvent = false;
 
             // Get mouse position while moving inside of the canvas
             function getMousePos(canvasDom, mouseEvent) {
@@ -260,7 +263,8 @@
                         // Append mouse position to entropy source
                         entropy += mousePos.x + mousePos.y;
                         document.getElementById("canvasCounter").innerHTML = entropy.length + " / 8192";
-                    } else { // Length requirement met 
+                    } else if (handleTouchEvent == false) { // Length requirement met
+                        handleTouchEvent = true;
                         // Hide canvas
                         $("#entropyCanvas").css("display", "none");
                         $("#canvasCounter").html("");
