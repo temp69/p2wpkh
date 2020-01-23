@@ -42,6 +42,10 @@
             cursor: crosshair;
         }
 
+        #entropyTextArea {
+            display: none;
+        }
+
         #entropyRef,
         #printRef {
             border: 1px solid #0088ff;
@@ -94,13 +98,13 @@
     </style>
 
     <!-- jQuery -->
-    <script src="js/jquery-3.2.1.min.js"></script>
+    <script src="js/jquery-3.4.1.min.js"></script>
     <!-- Bitcoinjs-lib -->
-    <script src="js/bitcoinjs-lib-3.1.1.js"></script>
-    <!-- big integer for mouse entropy -->
-    <script src="js/metropy.js"></script>
+    <script src="js/bitcoinjs5.1.7.js"></script>
     <!-- QRCode lib -->
-    <script type="text/javascript" src="js/qrcode.js"></script>
+    <script src="js/qrcode.js"></script>
+    <!-- Securerandom from www.bitaddress.org -->
+    <script src="js/securerandom.js"></script>
     <!-- PDF printer -->
     <script src="js/html2pdf.bundle.min.js"></script>
 </head>
@@ -109,8 +113,7 @@
     <!-- Generate / Print Buttons -->
     <div align="center">
         <br>
-        <a href="#entropyRef"><button id="entropyRef" onClick="return btnCreate();" class="btn btn-primary">Generate
-                Bitcoin Address</button></a>
+        <button id="entropyRef" onClick="btnCreate()" class="btn btn-primary">Generate Bitcoin Address</button>
         <button id="printRef" class="btn btn-primary">Print</button>
         <br>
     </div>
@@ -123,9 +126,11 @@
 
         <!-- Mouse/Touch entrophy canvas -->
         <div align="center">
-            <canvas id="entropyCanvas" width="400" height="400"></canvas>
+            <canvas id="entropyCanvas" width="512" height="512"></canvas>
         </div>
         <div align="center" id="canvasCounter"></div>
+        <div align="center"><textarea id="entropyTextArea" rows="8" cols="70"></textarea></div>
+
 
         <table width="100%">
             <tr>
@@ -155,18 +160,6 @@
     </div>
 
     <script>
-        // Get a regular interval for drawing to the screen
-        window.requestAnimFrame = (function (callback) {
-            return window.requestAnimationFrame ||
-                window.webkitRequestAnimationFrame ||
-                window.mozRequestAnimationFrame ||
-                window.oRequestAnimationFrame ||
-                window.msRequestAnimaitonFrame ||
-                function (callback) {
-                    window.setTimeout(callback, 1000 / 60);
-                };
-        })();
-
         // Create the needed variables
         var bitcoinAddress = "";
         var mousePos = { x: 0, y: 0 };
@@ -178,15 +171,101 @@
         c2d.font = "12px Arial";
         c2d.strokeStyle = "#222222";
         c2d.lineWith = 2;
-        // check if we attached an eventlistener already
+        // SecureRandom from www.bitaddress.org
+        var secureRandom = SecureRandom;
+        secureRandom.seedTime();
+        // Check if we have the listener attached already
         var listenerAttached = false;
-        // handleTouchEvent to stop touchmoved fireing
-        var handleTouchEvent = false;
+        // Handle touchmoved event, after entrophy.lenght > 8192
+        var handledTouchMoved = false;
 
+
+        // Get a regular interval for drawing to the screen        
+        window.requestAnimFrame = (function (callback) {
+            return window.requestAnimationFrame ||
+                window.webkitRequestAnimationFrame ||
+                window.mozRequestAnimationFrame ||
+                window.oRequestAnimationFrame ||
+                window.msRequestAnimaitonFrame ||
+                function (callback) {
+                    window.setTimeout(callback, 1000 / 60);
+                };
+        })();
+
+        /**
+         * Get mouse position while moving inside of the canvas
+         * @param {Canvas, Event} returns coordinate Object, only integers
+         */        
+        function getMousePos(canvasDom, mouseEvent) {
+            var rect = canvasDom.getBoundingClientRect();
+            return {
+                x: Math.floor(mouseEvent.clientX - rect.left),
+                y: Math.floor(mouseEvent.clientY - rect.top)
+            };
+        }
+
+        /**
+         * Get the position of a touch relative to the canvas
+         * @param {Canvas, Event} returns coordinate Object, only integers
+         */        
+        function getTouchPos(canvasDom, touchEvent) {
+            var rect = canvasDom.getBoundingClientRect();
+            return {
+                x: Math.floor(touchEvent.touches[0].clientX - rect.left),
+                y: Math.floor(touchEvent.touches[0].clientY - rect.top)
+            };
+        }
+
+        /**
+         * Convert a byte array to a hex string
+         * @param {Bytes} returns string in HEX form
+         */         
+        function bytesToHex(bytes) {
+            for (var hex = [], i = 0; i < bytes.length; i++) {
+                hex.push((bytes[i] >>> 4).toString(16));
+                hex.push((bytes[i] & 0xF).toString(16));
+            }
+            return hex.join("");
+        }
+
+        /**
+         * Shuffle array (Fisher-Yates / Durstenfeld algorithm)
+         * https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array 
+         * @param {Array} returns an array containing the items.
+         */
+        function shuffleArray(array) {
+            for (var i = array.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var temp = array[i];
+                array[i] = array[j];
+                array[j] = temp;
+            }
+            return array;
+        }
+
+        // Check if we are mobile, either mouse or touch events
+        var touchOrMouse = isMobileDevice() ? 'touchmove' : 'mousemove';
+        // set getPosition to the correct function
+        var getPosition = function (canvasDom, event) {
+            if (isMobileDevice()) {
+                return getTouchPos(canvasDom, event);
+            } else {
+                return getMousePos(canvasDom, event);
+            }
+        };
+
+        /**
+         * Button click function
+         * @param {} 
+         */        
         function btnCreate() {
-            // Show canvas
+            // Show canvas and entropy textarea
             $("#entropyCanvas").css("display", "block");
-            // set html content empty
+            $("#entropyTextArea").css("display", "block");
+            // Show innitial entrophy pool from SecureRandom
+            secureRandom.seedTime();
+            document.getElementById("entropyTextArea").innerHTML = bytesToHex(secureRandom.pool);
+            // Set html content empty
             $("#qrcode").html("");
             $("#swaddr").html("");
             $("#qrcodepk").html("");
@@ -197,101 +276,79 @@
             clearCanvas();
             // Add some info text to canvas
             c2d.fillText("Touch / move mouse to generate random numbers", 20, 20);
-            // Zero out entropy source
+            // Zero out entropy, for counter
             entropy = "";
+            document.getElementById("canvasCounter").innerHTML = entropy.length + " / 8192";
             // Empty bitcoinAddress
             bitcoinAddress = "";
             // Random startpoint in canvas
             mousePos = randomMousePos();
             lastPos = mousePos;
-            handleTouchEvent = false;
-
-            // Get mouse position while moving inside of the canvas
-            function getMousePos(canvasDom, mouseEvent) {
-                var rect = canvasDom.getBoundingClientRect();
-                return {
-                    x: Math.floor(mouseEvent.clientX - rect.left),
-                    y: Math.floor(mouseEvent.clientY - rect.top)
-                };
-            }
-
-            // Get the position of a touch relative to the canvas
-            function getTouchPos(canvasDom, touchEvent) {
-                var rect = canvasDom.getBoundingClientRect();
-                return {
-                    // touch result coult be in non-integer negative values, which we dont want
-                    x: Math.abs(Math.floor(touchEvent.touches[0].clientX - rect.left)),
-                    y: Math.abs(Math.floor(touchEvent.touches[0].clientY - rect.top))
-                    // x: Math.floor(touchEvent.targetTouches[0].pageX - rect.left),
-                    // y: Math.floor(touchEvent.targetTouches[0].pageY - rect.top)
-                };
-            }
-
-            /**
-             * Shuffle array (Fisher-Yates / Durstenfeld algorithm)
-             * https://stackoverflow.com/questions/2450954/how-to-randomize-shuffle-a-javascript-array 
-             * @param {Array} a items An array containing the items.
-             */
-             function shuffleArray(array) {
-                for (var i = array.length - 1; i > 0; i--) {
-                    var j = Math.floor(Math.random() * (i + 1));
-                    var temp = array[i];
-                    array[i] = array[j];
-                    array[j] = temp;
-                }
-                return array;
-            }            
-
-            // Check if we are mobile, either mouse or touch events
-            var touchOrMouse = isMobileDevice() ? 'touchmove' : 'mousemove';
-            let getPosition = function (canvasDom, event) {
-                if (isMobileDevice()) {
-                    return getTouchPos(canvasDom, event);
-                } else {
-                    return getMousePos(canvasDom, event);
-                }
-            };
+            handledTouchMoved = false;
 
             if (listenerAttached == false) {
-                canvas.addEventListener(touchOrMouse, function (evt) {
-                    listenerAttached = true;
+                // Change listenerAttached, so we dont register this event multiple times
+                listenerAttached = true;
+                // Add eventListener
+                canvas.addEventListener(touchOrMouse, function (evt) {                    
+                    if (touchOrMouse === "touchmove") { evt.preventDefault(); }
                     // Append until a length of 8192    
                     if (entropy.length < 8192) {
-                        // mousePos = getMousePos(canvas, evt);
+                        // Bind mousePos to the correct function in getPosition
                         mousePos = getPosition.bind(null, canvas, evt)();
-                        // console.log('Pos: ', mousePos.x, mousePos.y) // DEBUG
-                        // Append mouse position to entropy source
+                        // Use entrophy as counter now...
                         entropy += mousePos.x + mousePos.y;
+                        // Update canvasCounter
                         document.getElementById("canvasCounter").innerHTML = entropy.length + " / 8192";
-                    } else if (handleTouchEvent == false) { // Length requirement met
-                        handleTouchEvent = true;
-                        // Hide canvas
+                        // Securerandom is new entrophy source, update and show
+                        secureRandom.seedTime();
+                        secureRandom.seedInt16(mousePos.x * mousePos.y);
+                        document.getElementById("entropyTextArea").innerHTML = bytesToHex(secureRandom.pool);
+                    } else if (handledTouchMoved == false) { // Length requirement met 
+                        handledTouchMoved = true;
+                        // Hide canvas, canvasCounter, entropyTextArea
                         $("#entropyCanvas").css("display", "none");
+                        $("#entropyTextArea").css("display", "none");
                         $("#canvasCounter").html("");
-                        // Shuffle the entropy
-                        // console.log('Before', entropy); // DEBUG
-                        entropy = shuffleArray(Array.from(entropy)).join('');
-                        // console.log('After', entropy); // DEBUG
-                        // Create a key pair based on the 8192 random integers through sha256 hash with the addMouseEntropy function 
-                        me.addMouseEntropy(entropy, bitcoin.networks.bitcoin, function (maddr, mpk) {
-                            // PUBLIC INFO
-                            bitcoinAddress = maddr;
-                            document.getElementById('share').innerHTML = "OK TO SHARE"
-                            document.getElementById("swaddr").innerHTML = "<br><div class='panel panel-primary'><div class='panel-heading'><h3 class='panel-title'>Bitcoin PUBLIC Key (Savings book)</h2></div><div class='panel-body'><b>" + maddr + "</b></div></div>";
 
-                            // Blank out any existing qr code
-                            document.getElementById("qrcode").innerHTML = "";
-                            // Create new qrcode with segwit address
-                            new QRCode(document.getElementById("qrcode"), maddr);
+                        
+                        let unshuffledEntrophy = secureRandom.pool.slice();
+                        // Lets shuffle the array
+                        let shuffeledEntrophy = shuffleArray(secureRandom.pool);
+                        // BitcoinJS MAGIC!! /////////////////////////////////
+                        let sha256 = btcjs.crypto.sha256(shuffeledEntrophy);
+                        let keyPair = btcjs.ECPair.fromPrivateKey(sha256);
+                        let wif = keyPair.toWIF();
+                        let { address } = btcjs.payments.p2sh({
+                            redeem: btcjs.payments.p2wpkh({ pubkey: keyPair.publicKey })
+                        })
+                        ///////////////////////////////////////////////////////
 
-                            document.getElementById('keep').innerHTML = "KEEP PRIVATE"
-                            document.getElementById("swpk").innerHTML = "<br><div class='panel panel-danger'><div class='panel-headingd'><h3 class='panel-title'>Bitcoin PRIVATE Key (Savings book password)</h2></div><div class='panel-body'><b>" + mpk + "</b></div></div>";
+                        // console.log('unshuffeledEntrophy', unshuffledEntrophy, bytesToHex(unshuffledEntrophy)); // DEBUG
+                        // console.log('shuffeledEntrophy', shuffeledEntrophy, bytesToHex(shuffeledEntrophy)); // DEBUG
+                        // console.log('sha256', sha256, bytesToHex(sha256));  // DEBUG
+                        // console.log('keyPair', keyPair);  // DEBUG
+                        // console.log('wif', wif);  // DEBUG
+                        // console.log('address', address);  // DEBUG
 
-                            // Blank out any exisitng private key qr code
-                            document.getElementById("qrcodepk").innerHTML = "";
-                            // Create new qrcode with private key
-                            new QRCode(document.getElementById("qrcodepk"), mpk);
-                        });
+                        // CREATE THE QR CODES
+                        // PUBLIC INFO
+                        bitcoinAddress = address;
+                        document.getElementById('share').innerHTML = "OK TO SHARE"
+                        document.getElementById("swaddr").innerHTML = "<br><div class='panel panel-primary'><div class='panel-heading'><h3 class='panel-title'>Bitcoin PUBLIC Key (Savings book)</h2></div><div class='panel-body'><b>" + address + "</b></div></div>";
+
+                        // Blank out any existing qr code
+                        document.getElementById("qrcode").innerHTML = "";
+                        // Create new qrcode with segwit address
+                        new QRCode(document.getElementById("qrcode"), address);
+
+                        document.getElementById('keep').innerHTML = "KEEP PRIVATE"
+                        document.getElementById("swpk").innerHTML = "<br><div class='panel panel-danger'><div class='panel-headingd'><h3 class='panel-title'>Bitcoin PRIVATE Key (Savings book password)</h2></div><div class='panel-body'><b>" + wif + "</b></div></div>";
+
+                        // Blank out any exisitng private key qr code
+                        document.getElementById("qrcodepk").innerHTML = "";
+                        // Create new qrcode with private key
+                        new QRCode(document.getElementById("qrcodepk"), wif);
                     }
                 }, false);
             }
@@ -306,7 +363,10 @@
             html2pdf(element, options);
         });
 
-        // Draw to the canvas
+        /**
+         * Draw to the canvas
+         * @param {}
+         */        
         function renderCanvas() {
             c2d.moveTo(lastPos.x, lastPos.y);
             c2d.lineTo(mousePos.x, mousePos.y);
@@ -314,12 +374,18 @@
             lastPos = mousePos;
         }
 
-        // Clear canvas
+        /**
+         * Clear canvas
+         * @param {}
+         */         
         function clearCanvas() {
             canvas.width = canvas.width;
         }
 
-        // When moving into the canvas start randomly
+        /**
+         * Moving into the canvas start random position
+         * @param {}
+         */          
         function randomMousePos() {
             var rect = canvas.getBoundingClientRect();
             return {
@@ -328,13 +394,17 @@
             };
         }
 
-        // Allow for animation
+        // For animation
         (function drawLoop() {
             requestAnimFrame(drawLoop);
             renderCanvas();
         })();
 
-        // Check for mobile device
+        /**
+         * Check for mobile device
+         * https://coderwall.com/p/i817wa/one-line-function-to-detect-mobile-devices-with-javascript
+         * @param {}
+         */        
         function isMobileDevice() {
             return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1);
         };
