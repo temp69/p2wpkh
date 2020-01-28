@@ -1,7 +1,10 @@
 # p2wpkh
 
-This is a simple bitcoin paper wallet generator that utilizes Segregated Witness (SegWit) Pay To Witness Public Key Hash (P2WPKH) addresses and transactions. 
-This repo uses those libraries:
+This is a simple bitcoin paper wallet generator for Segregated Witness (SegWit) Pay To Witness Public Key Hash (P2WPKH) addresses.
+
+<img src=https://user-images.githubusercontent.com/36497576/73241169-89766800-41a1-11ea-8870-96fdfd2e3113.gif>
+
+## Libraries
 
 *  BitcoinJS (5.1.7) : https://github.com/bitcoinjs/bitcoinjs-lib
 *  html2pdf.js : https://github.com/eKoopmans/html2pdf.js
